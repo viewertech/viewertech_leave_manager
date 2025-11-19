@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Leave Manager Dashboard</title>
+    <script>
+    async function load() {
+        const r = await fetch('/api/method/viewertech_leave_manager.api.dashboard_stats');
+        const data = await r.json();
+        document.getElementById('total').innerText = data.message.total_employees;
+        document.getElementById('alloc').innerText = data.message.allocated_this_year;
+        document.getElementById('taken').innerText = data.message.taken_this_year;
+        const list = document.getElementById('over');
+        data.message.employees_over_carryover.forEach(e => {
+            const li = document.createElement('li');
+            li.innerText = `${e.employee}: ${e.bal}`;
+            list.appendChild(li);
+        })
+    }
+    window.onload = load;
+    </script>
+</head>
+<body>
+    <h1>Leave Manager Dashboard</h1>
+    <div>Total active employees: <span id="total">…</span></div>
+    <div>Allocated this year: <span id="alloc">…</span></div>
+    <div>Taken this year: <span id="taken">…</span></div>
+    <h3>Employees over carryover limit</h3>
+    <ul id="over"></ul>
+</body>
+</html>

@@ -1,0 +1,36 @@
+{
+ "name": "Leave Manager Settings",
+ "module": "Viewertech Leave Manager",
+ "custom": 0,
+ "doctype": "DocType",
+ "istable": 0,
+ "editable_grid": 0,
+ "fields": [
+  {"fieldname": "monthly_allocation", "label": "Monthly Allocation (Days)", "fieldtype": "Float", "default": "2"},
+  {"fieldname": "carryover_limit", "label": "Carryover Limit (Days)", "fieldtype": "Float", "default": "10"},
+  {"fieldname": "december_forced_days", "label": "December Forced Leave Days", "fieldtype": "Float", "default": "10"},
+  {"fieldname": "enable_monthly", "label": "Enable Monthly Allocation", "fieldtype": "Check", "default": "1"},
+  {"fieldname": "enable_midyear_forfeit", "label": "Enable Mid-year Forfeit", "fieldtype": "Check", "default": "1"},
+  {"fieldname": "enable_december_forced", "label": "Enable December Forced Leave", "fieldtype": "Check", "default": "1"},
+  {"fieldname": "enable_carryover", "label": "Enable Year-end Carryover Limit", "fieldtype": "Check", "default": "1"}
+ ],
+ "allow_rename": 0,
+ "quick_entry": 0,
+ "permissions": [
+    {
+        "role": "System Manager",
+        "read": 1,
+        "write": 1,
+        "create": 1,
+        "delete": 1,
+        "submit": 1,
+        "cancel": 1
+    },
+    {
+        "role": "HR Manager",
+        "read": 1,
+        "write": 1,
+        "create": 1
+    }
+]
+}
