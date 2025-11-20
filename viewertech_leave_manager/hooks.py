@@ -8,13 +8,8 @@ app_color = "green"
 app_email = "admin@viewertech.example"
 app_license = "MIT"
 
-app_include_js = [
-    "viewertech_leave_manager/js/leave_dashboard.js"
-]
-
-app_include_css = [
-    "viewertech_leave_manager/css/leave_dashboard.css"
-]
+app_include_js = "/assets/viewertech_leave_manager/js/leave_dashboard.min.js"
+app_include_css = "/assets/viewertech_leave_manager/css/leave_dashboard.min.css"
 
 # Scheduler Events
 scheduler_events = {
