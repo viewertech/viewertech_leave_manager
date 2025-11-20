@@ -1,4 +1,4 @@
 {
-    "public/js/leave_dashboard.js": [],
-    "public/css/leave_dashboard.css": []
+    "public/js/leave_dashboard.js": ["public/js/leave_dashboard.js"],
+    "public/css/leave_dashboard.css": ["public/css/leave_dashboard.css"]
 }
