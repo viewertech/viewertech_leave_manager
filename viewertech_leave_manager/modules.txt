@@ -1,1 +1,1 @@
-Viewertech Leave Manager 
+viewertech_leave_manager

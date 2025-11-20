@@ -1,3 +1,4 @@
 {
-    "viewertech_leave_manager/js/leave_dashboard.js": []
+    "public/js/leave_dashboard.js": [],
+    "public/css/leave_dashboard.css": []
 }
