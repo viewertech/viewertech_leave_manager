@@ -5,7 +5,7 @@ app_publisher = "Viewertech"
 app_description = "Automates monthly accrual, mid-year forfeits, December forced leave and year-end carryover limit."
 app_icon = "octicon octicon-check"
 app_color = "green"
-app_email = "admin@viewertech.example"
+app_email = "admin@viewertech.net"
 app_license = "MIT"
 
 app_include_js = "/assets/viewertech_leave_manager/js/leave_dashboard.min.js"

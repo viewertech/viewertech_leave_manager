@@ -92,17 +92,17 @@ def forfeit_first_half_year_balance():
 
     for emp in _get_active_employees():
         allocated = frappe.db.sql(
-            "SELECT COALESCE(SUM(new_leaves_allocated),0) FROM `tabLeave Allocation`
+            """SELECT COALESCE(SUM(new_leaves_allocated),0) FROM `tabLeave Allocation`
             WHERE employee=%s AND leave_type=%s
-            AND from_date >= %s AND to_date <= %s",
+            AND from_date >= %s AND to_date <= %s""",
             (emp.name, LEAVE_TYPE, start, mid), as_list=1
         )[0][0]
 
         taken = frappe.db.sql(
-            "SELECT COALESCE(SUM(total_leave_days),0) FROM `tabLeave Application`
+            """SELECT COALESCE(SUM(total_leave_days),0) FROM `tabLeave Application`
             WHERE employee=%s AND leave_type=%s
             AND from_date >= %s AND to_date <= %s
-            AND status='Approved'",
+            AND status='Approved'""",
             (emp.name, LEAVE_TYPE, start, mid), as_list=1
         )[0][0]
 
@@ -140,8 +140,8 @@ def enforce_december_forced_leave():
     for emp in _get_active_employees():
         # If there is any approved leave that covers the period, skip
         exists = frappe.db.sql(
-            "SELECT COUNT(*) FROM `tabLeave Application` WHERE employee=%s AND leave_type=%s
-            AND status='Approved' AND ((from_date<=%s AND to_date>=%s) OR (from_date>=%s AND to_date<=%s))",
+            """SELECT COUNT(*) FROM `tabLeave Application` WHERE employee=%s AND leave_type=%s
+            AND status='Approved' AND ((from_date<=%s AND to_date>=%s) OR (from_date>=%s AND to_date<=%s))""",
             (emp.name, LEAVE_TYPE, start, end, start, end), as_list=1
         )[0][0]
         if exists:
