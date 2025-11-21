@@ -55,13 +55,21 @@ def monthly_annual_leave_accrual():
     alloc_days = float(getattr(settings, 'monthly_allocation', 2))
 
     for emp in _get_active_employees():
-        exists = frappe.db.exists("Leave Allocation", {
-            "employee": emp.name,
-            "leave_type": LEAVE_TYPE,
-            "from_date": from_date,
-            "to_date": to_date,
-        })
+
+        # NEW: Robust overlap check (fixes OverlapError)
+        exists = frappe.db.sql("""
+            SELECT name FROM `tabLeave Allocation`
+            WHERE employee=%s
+            AND leave_type=%s
+            AND (
+                (from_date <= %s AND to_date >= %s) OR
+                (from_date >= %s AND from_date <= %s)
+            )
+        """, (emp.name, LEAVE_TYPE, to_date, from_date, from_date, to_date))
+
         if exists:
+            # Already allocated or overlapped — skip month
+            frappe.logger().info(f"[Monthly Accrual] SKIP {emp.name}: Overlap detected ({exists[0][0]})")
             continue
 
         allocation = frappe.get_doc({
@@ -73,11 +81,13 @@ def monthly_annual_leave_accrual():
             "new_leaves_allocated": alloc_days,
             "note": "Monthly automatic allocation",
         })
+
         allocation.insert(ignore_permissions=True)
         try:
             allocation.submit()
         except Exception as e:
             frappe.log_error(f"Failed to submit allocation for {emp.name}: {e}")
+
 
 
 def forfeit_first_half_year_balance():
