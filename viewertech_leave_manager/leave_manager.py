@@ -55,38 +55,46 @@ def monthly_annual_leave_accrual():
     alloc_days = float(getattr(settings, 'monthly_allocation', 2))
 
     for emp in _get_active_employees():
+        # Check if allocation already exists for this employee and period
+        existing = frappe.get_all(
+            "Leave Allocation",
+            filters={
+                "employee": emp.name,
+                "leave_type": LEAVE_TYPE,
+                "from_date": from_date,
+                "to_date": to_date,
+            },
+            fields=["name", "new_leaves_allocated"]
+        )
 
-        # NEW: Robust overlap check (fixes OverlapError)
-        exists = frappe.db.sql("""
-            SELECT name FROM `tabLeave Allocation`
-            WHERE employee=%s
-            AND leave_type=%s
-            AND (
-                (from_date <= %s AND to_date >= %s) OR
-                (from_date >= %s AND from_date <= %s)
-            )
-        """, (emp.name, LEAVE_TYPE, to_date, from_date, from_date, to_date))
+        if existing:
+            # Increment existing allocation
+            doc = frappe.get_doc("Leave Allocation", existing[0].name)
+            doc.new_leaves_allocated = (doc.new_leaves_allocated or 0) + alloc_days
+            doc.note = "Monthly automatic allocation updated"
+            doc.save(ignore_permissions=True)
+            try:
+                if doc.docstatus == 0:
+                    doc.submit()
+            except Exception as e:
+                frappe.log_error(f"Failed to submit updated allocation for {emp.name}: {e}")
+        else:
+            # Create a new allocation if none exists
+            doc = frappe.get_doc({
+                "doctype": "Leave Allocation",
+                "employee": emp.name,
+                "leave_type": LEAVE_TYPE,
+                "from_date": from_date,
+                "to_date": to_date,
+                "new_leaves_allocated": alloc_days,
+                "note": "Monthly automatic allocation",
+            })
+            doc.insert(ignore_permissions=True)
+            try:
+                doc.submit()
+            except Exception as e:
+                frappe.log_error(f"Failed to submit allocation for {emp.name}: {e}")
 
-        if exists:
-            # Already allocated or overlapped — skip month
-            frappe.logger().info(f"[Monthly Accrual] SKIP {emp.name}: Overlap detected ({exists[0][0]})")
-            continue
-
-        allocation = frappe.get_doc({
-            "doctype": "Leave Allocation",
-            "employee": emp.name,
-            "leave_type": LEAVE_TYPE,
-            "from_date": from_date,
-            "to_date": to_date,
-            "new_leaves_allocated": alloc_days,
-            "note": "Monthly automatic allocation",
-        })
-
-        allocation.insert(ignore_permissions=True)
-        try:
-            allocation.submit()
-        except Exception as e:
-            frappe.log_error(f"Failed to submit allocation for {emp.name}: {e}")
 
 
 
@@ -103,16 +111,16 @@ def forfeit_first_half_year_balance():
     for emp in _get_active_employees():
         allocated = frappe.db.sql(
             """SELECT COALESCE(SUM(new_leaves_allocated),0) FROM `tabLeave Allocation`
-            WHERE employee=%s AND leave_type=%s
-            AND from_date >= %s AND to_date <= %s""",
+               WHERE employee=%s AND leave_type=%s
+               AND from_date >= %s AND to_date <= %s""",
             (emp.name, LEAVE_TYPE, start, mid), as_list=1
         )[0][0]
 
         taken = frappe.db.sql(
             """SELECT COALESCE(SUM(total_leave_days),0) FROM `tabLeave Application`
-            WHERE employee=%s AND leave_type=%s
-            AND from_date >= %s AND to_date <= %s
-            AND status='Approved'""",
+               WHERE employee=%s AND leave_type=%s
+               AND from_date >= %s AND to_date <= %s
+               AND status='Approved'""",
             (emp.name, LEAVE_TYPE, start, mid), as_list=1
         )[0][0]
 
@@ -120,20 +128,43 @@ def forfeit_first_half_year_balance():
         if balance <= 0:
             continue
 
-        doc = frappe.get_doc({
-            "doctype": "Leave Allocation",
-            "employee": emp.name,
-            "leave_type": LEAVE_TYPE,
-            "from_date": mid,
-            "to_date": mid,
-            "new_leaves_allocated": -balance,
-            "note": "Forfeit unused Jan-Jun annual leave",
-        })
-        doc.insert(ignore_permissions=True)
-        try:
-            doc.submit()
-        except Exception as e:
-            frappe.log_error(f"Failed to submit forfeit for {emp.name}: {e}")
+        # Check for existing allocation
+        existing = frappe.get_all(
+            "Leave Allocation",
+            filters={
+                "employee": emp.name,
+                "leave_type": LEAVE_TYPE,
+                "from_date": mid,
+                "to_date": mid,
+            },
+            fields=["name", "new_leaves_allocated"]
+        )
+
+        if existing:
+            doc = frappe.get_doc("Leave Allocation", existing[0].name)
+            doc.new_leaves_allocated = (doc.new_leaves_allocated or 0) - balance
+            doc.note = "Mid-year forfeit updated"
+            doc.save(ignore_permissions=True)
+            try:
+                if doc.docstatus == 0:
+                    doc.submit()
+            except Exception as e:
+                frappe.log_error(f"Failed to submit updated mid-year forfeit for {emp.name}: {e}")
+        else:
+            doc = frappe.get_doc({
+                "doctype": "Leave Allocation",
+                "employee": emp.name,
+                "leave_type": LEAVE_TYPE,
+                "from_date": mid,
+                "to_date": mid,
+                "new_leaves_allocated": -balance,
+                "note": "Forfeit unused Jan-Jun annual leave",
+            })
+            doc.insert(ignore_permissions=True)
+            try:
+                doc.submit()
+            except Exception as e:
+                frappe.log_error(f"Failed to submit mid-year forfeit for {emp.name}: {e}")
 
 
 def enforce_december_forced_leave():
@@ -148,30 +179,42 @@ def enforce_december_forced_leave():
     forced_days = float(getattr(settings, 'december_forced_days', 10))
 
     for emp in _get_active_employees():
-        # If there is any approved leave that covers the period, skip
-        exists = frappe.db.sql(
-            """SELECT COUNT(*) FROM `tabLeave Application` WHERE employee=%s AND leave_type=%s
-            AND status='Approved' AND ((from_date<=%s AND to_date>=%s) OR (from_date>=%s AND to_date<=%s))""",
-            (emp.name, LEAVE_TYPE, start, end, start, end), as_list=1
-        )[0][0]
-        if exists:
-            continue
+        existing = frappe.get_all(
+            "Leave Allocation",
+            filters={
+                "employee": emp.name,
+                "leave_type": LEAVE_TYPE,
+                "from_date": start,
+                "to_date": end,
+            },
+            fields=["name", "new_leaves_allocated"]
+        )
 
-        doc = frappe.get_doc({
-            "doctype": "Leave Application",
-            "employee": emp.name,
-            "leave_type": LEAVE_TYPE,
-            "from_date": start,
-            "to_date": end,
-            "total_leave_days": forced_days,
-            "status": "Approved",
-            "description": "Mandatory company closure - December",
-        })
-        doc.insert(ignore_permissions=True)
-        try:
-            doc.submit()
-        except Exception as e:
-            frappe.log_error(f"Failed to submit forced leave for {emp.name}: {e}")
+        if existing:
+            doc = frappe.get_doc("Leave Allocation", existing[0].name)
+            doc.new_leaves_allocated = max(forced_days, doc.new_leaves_allocated)
+            doc.note = "December forced leave updated"
+            doc.save(ignore_permissions=True)
+            try:
+                if doc.docstatus == 0:
+                    doc.submit()
+            except Exception as e:
+                frappe.log_error(f"Failed to submit updated December forced leave for {emp.name}: {e}")
+        else:
+            doc = frappe.get_doc({
+                "doctype": "Leave Allocation",
+                "employee": emp.name,
+                "leave_type": LEAVE_TYPE,
+                "from_date": start,
+                "to_date": end,
+                "new_leaves_allocated": forced_days,
+                "note": "Mandatory company closure - December",
+            })
+            doc.insert(ignore_permissions=True)
+            try:
+                doc.submit()
+            except Exception as e:
+                frappe.log_error(f"Failed to submit December forced leave for {emp.name}: {e}")
 
 
 def enforce_carryover_limit():
@@ -181,22 +224,48 @@ def enforce_carryover_limit():
         return
 
     limit = float(getattr(settings, 'carryover_limit', 10.0))
+    today = nowdate()
+
     for emp in _get_active_employees():
         balance = _current_balance(emp.name)
         if balance <= limit:
             continue
+
         excess = balance - limit
-        doc = frappe.get_doc({
-            "doctype": "Leave Allocation",
-            "employee": emp.name,
-            "leave_type": LEAVE_TYPE,
-            "from_date": nowdate(),
-            "to_date": nowdate(),
-            "new_leaves_allocated": -excess,
-            "note": "Year-end carryover limit enforcement",
-        })
-        doc.insert(ignore_permissions=True)
-        try:
-            doc.submit()
-        except Exception as e:
-            frappe.log_error(f"Failed to submit carryover deduction for {emp.name}: {e}")
+        # Update an existing allocation for today if exists
+        existing = frappe.get_all(
+            "Leave Allocation",
+            filters={
+                "employee": emp.name,
+                "leave_type": LEAVE_TYPE,
+                "from_date": today,
+                "to_date": today,
+            },
+            fields=["name", "new_leaves_allocated"]
+        )
+
+        if existing:
+            doc = frappe.get_doc("Leave Allocation", existing[0].name)
+            doc.new_leaves_allocated = (doc.new_leaves_allocated or 0) - excess
+            doc.note = "Year-end carryover limit enforcement updated"
+            doc.save(ignore_permissions=True)
+            try:
+                if doc.docstatus == 0:
+                    doc.submit()
+            except Exception as e:
+                frappe.log_error(f"Failed to submit updated carryover deduction for {emp.name}: {e}")
+        else:
+            doc = frappe.get_doc({
+                "doctype": "Leave Allocation",
+                "employee": emp.name,
+                "leave_type": LEAVE_TYPE,
+                "from_date": today,
+                "to_date": today,
+                "new_leaves_allocated": -excess,
+                "note": "Year-end carryover limit enforcement",
+            })
+            doc.insert(ignore_permissions=True)
+            try:
+                doc.submit()
+            except Exception as e:
+                frappe.log_error(f"Failed to submit carryover deduction for {emp.name}: {e}")
