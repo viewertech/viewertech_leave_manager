@@ -16,19 +16,19 @@ scheduler_events = {
 "cron": {
 # run at 23:50 on last day of month -> monthly accrual
 "50 23 L * *": [
-"viewertech_leave_manager.viewertech_leave_manager.leave_manager.monthly_annual_leave_accrual"
+"viewertech_leave_manager.leave_manager.monthly_annual_leave_accrual"
 ],
 # run 00:05 on 1 July -> forfeit first half
 "5 0 1 7 *": [
-"viewertech_leave_manager.viewertech_leave_manager.leave_manager.forfeit_first_half_year_balance"
+"viewertech_leave_manager.leave_manager.forfeit_first_half_year_balance"
 ],
 # run 00:05 on 1 Dec -> create forced leave applications
 "5 0 1 12 *": [
-"viewertech_leave_manager.viewertech_leave_manager.leave_manager.enforce_december_forced_leave"
+"viewertech_leave_manager.leave_manager.enforce_december_forced_leave"
 ],
 # run 00:10 on 1 Jan -> enforce carryover limit
 "10 0 1 1 *": [
-"viewertech_leave_manager.viewertech_leave_manager.leave_manager.enforce_carryover_limit"
+"viewertech_leave_manager.leave_manager.enforce_carryover_limit"
 ],
 }
 }
